@@ -33,10 +33,8 @@ int verbose;
 //      Predictor Data Structures     //
 //------------------------------------//
 
-//
-//TODO: Add your own Branch Predictor data structures here
-//
-
+uint8_t *gsharetable;
+uint64_t gsharebhr;
 
 //------------------------------------//
 //        Predictor Functions         //
@@ -47,9 +45,8 @@ int verbose;
 void
 init_predictor()
 {
-  //
-  //TODO: Initialize Branch Predictor Data Structures
-  //
+  gsharetable = calloc(1<<pcIndexBits, sizeof(uint8_t));
+  gsharebhr = 0;
 }
 
 // Make a prediction for conditional branch instruction at PC 'pc'
@@ -67,7 +64,11 @@ make_prediction(uint32_t pc)
   switch (bpType) {
     case STATIC:
       return TAKEN;
-    case GSHARE:
+    case GSHARE: {
+      uint32_t index = (pc & ((1 << pcIndexBits) - 1)) ^ gsharebhr;
+      uint8_t predict = gsharetable[index];
+      return predict ? TAKEN : NOTTAKEN;
+    }
     case TOURNAMENT:
     case CUSTOM:
     default:
@@ -85,7 +86,38 @@ make_prediction(uint32_t pc)
 void
 train_predictor(uint32_t pc, uint8_t outcome)
 {
-  //
-  //TODO: Implement Predictor training
-  //
+  // Train based on the bpType
+  switch (bpType) {
+    case STATIC:
+      break;
+    case GSHARE: {
+      uint32_t index = (pc & ((1 << pcIndexBits) - 1)) ^ gsharebhr;
+      transition_predictor(&gsharetable[index], outcome);
+      gsharebhr = (gsharebhr << 1) & outcome;
+      break;
+    }
+    case TOURNAMENT:
+    case CUSTOM:
+    default:
+      break;
+  }
+}
+
+void transition_predictor(uint8_t *state, uint8_t outcome) {
+  switch(*state) {
+    case SN:
+      *state = outcome == TAKEN ? WT : SN;
+      break;
+    case WN:
+      *state = outcome == TAKEN ? ST : SN;
+      break;
+    case WT:
+      *state = outcome == TAKEN ? ST : WN;
+      break;
+    case ST:
+      *state = outcome == TAKEN ? ST : WT;
+      break;
+    default:
+      break;
+  }
 }

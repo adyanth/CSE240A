@@ -67,4 +67,5 @@ uint8_t make_prediction(uint32_t pc);
 //
 void train_predictor(uint32_t pc, uint8_t outcome);
 
+void transition_predictor(uint8_t *state, uint8_t outcome);
 #endif
