@@ -45,7 +45,7 @@ uint64_t gsharebhr;
 void
 init_predictor()
 {
-  gsharetable = calloc(1<<pcIndexBits, sizeof(uint8_t));
+  gsharetable = calloc(1<<ghistoryBits, sizeof(uint8_t));
   gsharebhr = 0;
 }
 
@@ -65,7 +65,7 @@ make_prediction(uint32_t pc)
     case STATIC:
       return TAKEN;
     case GSHARE: {
-      uint32_t index = (pc & ((1 << pcIndexBits) - 1)) ^ gsharebhr;
+      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       uint8_t predict = gsharetable[index];
       return predict ? TAKEN : NOTTAKEN;
     }
@@ -91,7 +91,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
     case STATIC:
       break;
     case GSHARE: {
-      uint32_t index = (pc & ((1 << pcIndexBits) - 1)) ^ gsharebhr;
+      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       transition_predictor(&gsharetable[index], outcome);
       gsharebhr = (gsharebhr << 1) & outcome;
       break;
