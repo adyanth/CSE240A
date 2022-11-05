@@ -67,7 +67,7 @@ make_prediction(uint32_t pc)
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       uint8_t predict = gsharetable[index];
-      return predict ? TAKEN : NOTTAKEN;
+      return (predict == ST || predict == WT) ? TAKEN : NOTTAKEN;
     }
     case TOURNAMENT:
     case CUSTOM:
