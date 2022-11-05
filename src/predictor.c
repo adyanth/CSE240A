@@ -106,10 +106,10 @@ train_predictor(uint32_t pc, uint8_t outcome)
 void transition_predictor(uint8_t *state, uint8_t outcome) {
   switch(*state) {
     case SN:
-      *state = outcome == TAKEN ? WT : SN;
+      *state = outcome == TAKEN ? WN : SN;
       break;
     case WN:
-      *state = outcome == TAKEN ? ST : SN;
+      *state = outcome == TAKEN ? WT : SN;
       break;
     case WT:
       *state = outcome == TAKEN ? ST : WN;
