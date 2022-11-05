@@ -45,10 +45,10 @@ uint64_t gsharebhr;
 void
 init_predictor()
 {
-  int tablesize = 1<<ghistoryBits , i; 
+  int tablesize = 1<<ghistoryBits; 
   gsharetable = calloc(tablesize, sizeof(uint8_t));
 
-  for (i = 0; i < tablesize; i++) {
+  for (int i = 0; i < tablesize; i++) {
     gsharetable[i] = WN;
   }
   gsharebhr = 0;
