@@ -93,7 +93,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       transition_predictor(&gsharetable[index], outcome);
-      gsharebhr = (gsharebhr << 1) & outcome;
+      gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
       break;
     }
     case TOURNAMENT:
