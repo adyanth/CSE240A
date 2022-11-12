@@ -37,8 +37,12 @@ int verbose;
 //      Predictor Data Structures     //
 //------------------------------------//
 
-uint8_t *gsharetable;
-uint64_t gsharebhr;
+// Gshare
+uint8_t *gsharetable;   // Global predictor
+uint64_t gsharebhr;     // History shift register
+// Tournamemt
+uint8_t *msharetable;   // Meta predictor
+uint8_t *psharetable;  // Local predictor
 
 //------------------------------------//
 //        Predictor Functions         //
@@ -49,13 +53,66 @@ uint64_t gsharebhr;
 void
 init_predictor()
 {
-  int tablesize = 1<<ghistoryBits; 
-  gsharetable = calloc(tablesize, sizeof(uint8_t));
+  switch (bpType) {
+    case TOURNAMENT: {
+      // Start with simple BHT
+      int tablesize = 1 << pcIndexBits;
+      msharetable = calloc(tablesize, sizeof(uint64_t));
+      psharetable = calloc(tablesize, sizeof(uint64_t));
+      // Initialize 
+      for (int i = 0; i < tablesize; i++) {
+        // Start with Local predictor (weak) (P2 - N)
+        msharetable[i] = WN;
+        // Initialize each predictor to WN
+        psharetable[i] = WN;
+      }
+      // Fallthrough since we need gselect for tournament
+    }
+    case GSHARE: {
+      int tablesize = 1<<ghistoryBits; 
+      gsharetable = calloc(tablesize, sizeof(uint8_t));
 
-  for (int i = 0; i < tablesize; i++) {
-    gsharetable[i] = WN;
+      // Initialize each predictor to WN
+      for (int i = 0; i < tablesize; i++) {
+        gsharetable[i] = WN;
+      }
+      // All history is not taken
+      gsharebhr = 0;
+      break;
+    }
+    default:
+      break;
   }
-  gsharebhr = 0;
+}
+
+uint8_t predict_nbit(uint64_t predict, int n) {
+  return (predict >= (1 << (n-1))) ? TAKEN : NOTTAKEN;
+}
+
+uint8_t predict_2bit(uint8_t predict) {
+  return predict_nbit(predict, 2);
+}
+
+uint8_t predict_lbit(uint64_t predict) {
+  return predict_nbit(predict, lhistoryBits);
+}
+
+void transition_nbit(uint8_t *state, uint8_t outcome, int n) {
+  *state += outcome ? 1:-1;
+  uint64_t st = ((1 << n)-1);
+  if(*state > st) {
+    *state = st;
+  } else if (*state < SN) {
+    *state = SN;
+  }
+}
+
+void transition_2bit(uint8_t *state, uint8_t outcome) {
+  return transition_nbit(state, outcome, 2);
+}
+
+void transition_lbit(uint8_t *state, uint8_t outcome) {
+  return transition_nbit(state, outcome, lhistoryBits);
 }
 
 // Make a prediction for conditional branch instruction at PC 'pc'
@@ -73,12 +130,19 @@ make_prediction(uint32_t pc)
   switch (bpType) {
     case STATIC:
       return TAKEN;
+    case TOURNAMENT: {
+      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      // If we are to use local predictor, prediction is N
+      if(!predict_2bit(msharetable[index])) {
+        return predict_lbit(psharetable[index]);
+      }
+      // Else fallthrough for gshare
+    }
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       uint8_t predict = gsharetable[index];
-      return (predict == ST || predict == WT) ? TAKEN : NOTTAKEN;
+      return predict_2bit(predict);
     }
-    case TOURNAMENT:
     case CUSTOM:
     default:
       break;
@@ -99,33 +163,25 @@ train_predictor(uint32_t pc, uint8_t outcome)
   switch (bpType) {
     case STATIC:
       break;
+    case TOURNAMENT: {
+      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      // Transition local predictor
+      transition_lbit(&psharetable[index], outcome);
+      // Transition meta predictor
+      uint8_t p1 = predict_2bit(gsharetable[index]);
+      uint8_t p2 = predict_lbit(psharetable[index]);
+      if(p1 != p2) {
+        transition_2bit(&msharetable[index], p1 > p2);
+      }
+      // Fall through transition global predictor
+    }
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
-      transition_predictor(&gsharetable[index], outcome);
+      transition_2bit(&gsharetable[index], outcome);
       gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
       break;
     }
-    case TOURNAMENT:
     case CUSTOM:
-    default:
-      break;
-  }
-}
-
-void transition_predictor(uint8_t *state, uint8_t outcome) {
-  switch(*state) {
-    case SN:
-      *state = outcome == TAKEN ? WN : SN;
-      break;
-    case WN:
-      *state = outcome == TAKEN ? WT : SN;
-      break;
-    case WT:
-      *state = outcome == TAKEN ? ST : WN;
-      break;
-    case ST:
-      *state = outcome == TAKEN ? ST : WT;
-      break;
     default:
       break;
   }
