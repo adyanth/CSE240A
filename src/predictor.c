@@ -42,7 +42,8 @@ uint8_t *gsharetable;   // Global predictor
 uint64_t gsharebhr;     // History shift register
 // Tournamemt
 uint8_t *msharetable;   // Meta predictor
-uint8_t *psharetable;  // Local predictor
+uint32_t *psharetable;   // Local history table
+uint8_t *lsharetable;   // Local predictor
 
 //------------------------------------//
 //        Predictor Functions         //
@@ -57,14 +58,20 @@ init_predictor()
     case TOURNAMENT: {
       // Start with simple BHT
       int tablesize = 1 << pcIndexBits;
-      msharetable = calloc(tablesize, sizeof(uint64_t));
-      psharetable = calloc(tablesize, sizeof(uint64_t));
+      int lsharetablesize = 1 << lhistoryBits;
+      msharetable = calloc(tablesize, sizeof(uint8_t));
+      psharetable = calloc(tablesize, sizeof(uint32_t));
+      lsharetable = calloc(lsharetablesize, sizeof(uint8_t));
       // Initialize 
       for (int i = 0; i < tablesize; i++) {
         // Start with Local predictor (weak) (P2 - N)
         msharetable[i] = WN;
+        // Initialize local history with NOT TAKEN
+        psharetable[i] = NOTTAKEN;
+      }
+      for (int i = 0; i < lsharetablesize; i++) {
         // Initialize each predictor to WN
-        psharetable[i] = WN;
+        lsharetable[i] = WN; 
       }
       // Fallthrough since we need gselect for tournament
     }
@@ -134,7 +141,8 @@ make_prediction(uint32_t pc)
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
       // If we are to use local predictor, prediction is N
       if(!predict_2bit(msharetable[index])) {
-        return predict_lbit(psharetable[index]);
+        int lsharetableindex = psharetable[index];
+        return predict_2bit(lsharetable[lsharetableindex]);
       }
       // Else fallthrough for gshare
     }
@@ -165,14 +173,17 @@ train_predictor(uint32_t pc, uint8_t outcome)
       break;
     case TOURNAMENT: {
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
-      // Transition local predictor
-      transition_lbit(&psharetable[index], outcome);
+      uint32_t lsharetableindex = psharetable[index];
       // Transition meta predictor
       uint8_t p1 = predict_2bit(gsharetable[index]);
-      uint8_t p2 = predict_lbit(psharetable[index]);
+      uint8_t p2 = predict_2bit(lsharetable[lsharetableindex]);
       if(p1 != p2) {
         transition_2bit(&msharetable[index], p1 > p2);
       }
+      // Transition local predictor
+      transition_2bit(&lsharetable[lsharetableindex], outcome);
+      // Transition locah history table
+      psharetable[index] = ((psharetable[index] << 1) | outcome) & ((1<<lhistoryBits)-1);
       // Fall through transition global predictor
     }
     case GSHARE: {
