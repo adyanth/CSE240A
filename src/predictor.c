@@ -105,12 +105,15 @@ uint8_t predict_lbit(uint64_t predict) {
 }
 
 void transition_nbit(uint8_t *state, uint8_t outcome, int n) {
-  *state += outcome ? 1:-1;
+  int16_t newSt = *state;
+  newSt += outcome ? 1:-1;
   uint64_t st = ((1 << n)-1);
-  if(*state > st) {
+  if(newSt > (int16_t)st) {
     *state = st;
-  } else if (*state < SN) {
+  } else if (newSt < SN) {
     *state = SN;
+  } else {
+    *state = newSt;
   }
 }
 
