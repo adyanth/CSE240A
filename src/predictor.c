@@ -45,7 +45,7 @@ uint8_t *msharetable;   // Meta predictor
 uint32_t *psharetable;   // Local history table
 uint8_t *lsharetable;   // Local predictor
 // Custom
-int32_t **perceptrontable; // Perceptron table 
+int32_t *perceptrontable; // Perceptron table 
 //------------------------------------//
 //        Predictor Functions         //
 //------------------------------------//
@@ -90,10 +90,7 @@ init_predictor()
     }
     case CUSTOM: {
       int tablesize = 1<<ghistoryBits;
-      perceptrontable = (int32_t **)calloc(tablesize, sizeof(int32_t *));
-      for (int i = 0; i < tablesize; i++) {
-        perceptrontable[i] = (int32_t *)calloc(ghistoryBits, sizeof(int32_t));
-      }
+      perceptrontable = (int32_t *)calloc(tablesize*ghistoryBits, sizeof(int32_t));
       // All history is not taken
       gsharebhr = 0;
       break;
@@ -103,7 +100,7 @@ init_predictor()
   }
 }
 
-uint8_t predict_nbit(uint64_t predict, int n) {
+uint8_t predict_nbit(uint32_t predict, int n) {
   return (predict >= (1 << (n-1))) ? TAKEN : NOTTAKEN;
 }
 
@@ -111,14 +108,14 @@ uint8_t predict_2bit(uint8_t predict) {
   return predict_nbit(predict, 2);
 }
 
-uint8_t predict_lbit(uint64_t predict) {
+uint8_t predict_lbit(uint32_t predict) {
   return predict_nbit(predict, lhistoryBits);
 }
 
 void transition_nbit(uint8_t *state, uint8_t outcome, int n) {
   int16_t newSt = *state;
   newSt += outcome ? 1:-1;
-  uint64_t st = ((1 << n)-1);
+  uint32_t st = ((1 << n)-1);
   if(newSt > (int16_t)st) {
     *state = st;
   } else if (newSt < SN) {
@@ -148,7 +145,7 @@ uint8_t predict_perceptron(int32_t *perceptron) {
 
 void transition_perceptron(int32_t *perceptron, uint8_t outcome) {
   for (int i = 0; i < ghistoryBits; i++) {
-    perceptron[i] = perceptron[i] + ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN) ? 1 : -1);
+    perceptron[i] += ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN) ? 1 : -1);
   }
   return;
 }
@@ -183,7 +180,7 @@ make_prediction(uint32_t pc)
     }
     case CUSTOM: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
-      return predict_perceptron(perceptrontable[index]);
+      return predict_perceptron(&perceptrontable[index*ghistoryBits]);
     }
     default:
       break;
@@ -227,7 +224,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
     }
     case CUSTOM:{
       uint32_t index = pc & ((1 << ghistoryBits) - 1) ^ gsharebhr;
-      transition_perceptron(perceptrontable[index], outcome);
+      transition_perceptron(&perceptrontable[index*ghistoryBits], outcome);
       gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
       break;
     }
