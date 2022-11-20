@@ -32,6 +32,9 @@ int lhistoryBits; // Number of bits used for Local History
 int pcIndexBits;  // Number of bits used for PC index
 int verbose;
 
+#define TOUR_1 LSHARE
+#define TOUR_2 GSHARE
+
 //------------------------------------//
 //      Predictor Data Structures     //
 //------------------------------------//
@@ -58,14 +61,25 @@ init_predictor(int bpType)
     case TOURNAMENT: {
       // Start with simple BHT
       int tablesize = 1 << pcIndexBits;
-      int lsharetablesize = 1 << lhistoryBits;
       msharetable = calloc(tablesize, sizeof(uint8_t));
-      psharetable = calloc(tablesize, sizeof(uint32_t));
-      lsharetable = calloc(lsharetablesize, sizeof(uint8_t));
+
       // Initialize 
       for (int i = 0; i < tablesize; i++) {
         // Start with Local predictor (weak) (P2 - N)
         msharetable[i] = WN;
+      }
+      // Since we need lshare and gselect for tournament
+      init_predictor(TOUR_1);
+      init_predictor(TOUR_2);
+      break;
+    }
+    case LSHARE: {
+      int tablesize = 1 << pcIndexBits;
+      int lsharetablesize = 1 << lhistoryBits;
+      lsharetable = calloc(lsharetablesize, sizeof(uint8_t));
+      psharetable = calloc(tablesize, sizeof(uint32_t));
+      // Initialize 
+      for (int i = 0; i < tablesize; i++) {
         // Initialize local history with NOT TAKEN
         psharetable[i] = NOTTAKEN;
       }
@@ -73,8 +87,6 @@ init_predictor(int bpType)
         // Initialize each predictor to WN
         lsharetable[i] = WN; 
       }
-      // Since we need gselect for tournament
-      init_predictor(GSHARE);
       break;
     }
     case GSHARE: {
@@ -167,12 +179,12 @@ make_prediction(int bpType, uint32_t pc)
       return TAKEN;
     case TOURNAMENT: {
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
-      // If we are to use local predictor, prediction is N
-      if(!predict_2bit(msharetable[index])) {
-        int lsharetableindex = psharetable[index];
-        return predict_2bit(lsharetable[lsharetableindex]);
-      }
-      return make_prediction(GSHARE, pc);
+      return predict_2bit(msharetable[index]) ? make_prediction(TOUR_2, pc) : make_prediction(TOUR_1, pc);
+    }
+    case LSHARE: {
+      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      int lsharetableindex = psharetable[index];
+      return predict_2bit(lsharetable[lsharetableindex]);
     }
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
@@ -204,19 +216,23 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     case TOURNAMENT: {
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
-      uint32_t lsharetableindex = psharetable[index];
       // Transition meta predictor
-      uint8_t p1 = predict_2bit(gsharetable[index]);
-      uint8_t p2 = predict_2bit(lsharetable[lsharetableindex]);
+      uint8_t p2 = make_prediction(TOUR_1, pc);
+      uint8_t p1 = make_prediction(TOUR_2, pc);
       if(p1 != p2) {
         transition_2bit(&msharetable[index], p1 > p2);
       }
+      train_predictor(TOUR_1, pc, outcome);
+      train_predictor(TOUR_2, pc, outcome);
+      break;
+    }
+    case LSHARE: {
+      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      uint32_t lsharetableindex = psharetable[index];
       // Transition local predictor
       transition_2bit(&lsharetable[lsharetableindex], outcome);
-      // Transition locah history table
+      // Transition local history table
       psharetable[index] = ((psharetable[index] << 1) | outcome) & ((1<<lhistoryBits)-1);
-      // Transition global predictor
-      train_predictor(GSHARE, pc, outcome);
       break;
     }
     case GSHARE: {
