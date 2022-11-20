@@ -32,8 +32,10 @@ int lhistoryBits; // Number of bits used for Local History
 int pcIndexBits;  // Number of bits used for PC index
 int verbose;
 
-#define TOUR_1 LSHARE
-#define TOUR_2 GSHARE
+int TOUR_1 = LSHARE;
+int TOUR_2 = GSHARE;
+
+int CUSTOM_P = PERCEPTRON;
 
 //------------------------------------//
 //      Predictor Data Structures     //
@@ -101,11 +103,17 @@ init_predictor(int bpType)
       gsharebhr = 0;
       break;
     }
-    case CUSTOM: {
+    case PERCEPTRON: {
       int tablesize = 1<<ghistoryBits;
       perceptrontable = (int32_t *)calloc(tablesize*ghistoryBits, sizeof(int32_t));
       // All history is not taken
       gsharebhr = 0;
+      break;
+    }
+    case CUSTOM: {
+      TOUR_1 = PERCEPTRON;
+      TOUR_2 = GSHARE;
+      init_predictor(CUSTOM_P);
       break;
     }
     default:
@@ -177,6 +185,9 @@ make_prediction(int bpType, uint32_t pc)
   switch (bpType) {
     case STATIC:
       return TAKEN;
+    case CUSTOM: {
+      return make_prediction(CUSTOM_P, pc);
+    }
     case TOURNAMENT: {
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
       return predict_2bit(msharetable[index]) ? make_prediction(TOUR_2, pc) : make_prediction(TOUR_1, pc);
@@ -191,7 +202,7 @@ make_prediction(int bpType, uint32_t pc)
       uint8_t predict = gsharetable[index];
       return predict_2bit(predict);
     }
-    case CUSTOM: {
+    case PERCEPTRON: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       return predict_perceptron(&perceptrontable[index*ghistoryBits]);
     }
@@ -214,6 +225,10 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
   switch (bpType) {
     case STATIC:
       break;
+    case CUSTOM: {
+      train_predictor(CUSTOM_P, pc, outcome);
+      break;
+    }
     case TOURNAMENT: {
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
       // Transition meta predictor
@@ -241,7 +256,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
       break;
     }
-    case CUSTOM:{
+    case PERCEPTRON:{
       uint32_t index = pc & ((1 << ghistoryBits) - 1) ^ gsharebhr;
       transition_perceptron(&perceptrontable[index*ghistoryBits], outcome);
       gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
