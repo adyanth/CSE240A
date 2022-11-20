@@ -35,7 +35,7 @@ int verbose;
 int TOUR_1 = LSHARE;
 int TOUR_2 = GSHARE;
 
-int CUSTOM_P = PERCEPTRON;
+int CUSTOM_P = TOURNAMENT;
 
 //------------------------------------//
 //      Predictor Data Structures     //
@@ -104,7 +104,7 @@ init_predictor(int bpType)
       break;
     }
     case PERCEPTRON: {
-      int tablesize = 1<<ghistoryBits;
+      int tablesize = 1<<(ghistoryBits);
       perceptrontable = (int32_t *)calloc(tablesize*ghistoryBits, sizeof(int32_t));
       // All history is not taken
       gsharebhr = 0;
@@ -154,14 +154,14 @@ void transition_lbit(uint8_t *state, uint8_t outcome) {
   return transition_nbit(state, outcome, lhistoryBits);
 }
 
-uint8_t predict_perceptron(int32_t *perceptron) {
+uint8_t predict_perceptron(int32_t *perceptron, int raw) {
   int prediction = 1; // Bias
 
   for (int i = 0; i < ghistoryBits; i++) {
     prediction += perceptron[i]*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN)? 1: -1);
   }
 
-  return prediction>=0;
+  return raw?prediction:prediction>=0;
 }
 
 void transition_perceptron(int32_t *perceptron, uint8_t outcome) {
@@ -258,7 +258,10 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
     }
     case PERCEPTRON:{
       uint32_t index = pc & ((1 << ghistoryBits) - 1) ^ gsharebhr;
-      transition_perceptron(&perceptrontable[index*ghistoryBits], outcome);
+      uint8_t pval = predict_perceptron(&perceptrontable[index*ghistoryBits], 1);
+      uint8_t p = predict_perceptron(&perceptrontable[index*ghistoryBits], 0);
+      if (p != outcome || pval <= (1.93*ghistoryBits+14))
+        transition_perceptron(&perceptrontable[index*ghistoryBits], outcome);
       gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
       break;
     }
