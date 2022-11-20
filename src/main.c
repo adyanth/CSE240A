@@ -13,6 +13,7 @@
 FILE *stream;
 char *buf = NULL;
 size_t len = 0;
+int bpType;
 
 // Print out the Usage information to stderr
 //
@@ -104,7 +105,7 @@ main(int argc, char *argv[])
   }
 
   // Initialize the predictor
-  init_predictor();
+  init_predictor(bpType);
 
   uint32_t num_branches = 0;
   uint32_t mispredictions = 0;
@@ -116,7 +117,7 @@ main(int argc, char *argv[])
     num_branches++;
 
     // Make a prediction and compare with actual outcome
-    uint8_t prediction = make_prediction(pc);
+    uint8_t prediction = make_prediction(bpType, pc);
     if (prediction != outcome) {
       mispredictions++;
     }
@@ -125,7 +126,7 @@ main(int argc, char *argv[])
     }
 
     // Train the predictor
-    train_predictor(pc, outcome);
+    train_predictor(bpType, pc, outcome);
   }
 
   // Print out the mispredict statistics

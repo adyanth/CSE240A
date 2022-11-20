@@ -30,7 +30,6 @@ const char *bpName[4] = { "Static", "Gshare",
 int ghistoryBits; // Number of bits used for Global History
 int lhistoryBits; // Number of bits used for Local History
 int pcIndexBits;  // Number of bits used for PC index
-int bpType;       // Branch Prediction Type
 int verbose;
 
 //------------------------------------//
@@ -53,7 +52,7 @@ int32_t *perceptrontable; // Perceptron table
 // Initialize the predictor
 //
 void
-init_predictor()
+init_predictor(int bpType)
 {
   switch (bpType) {
     case TOURNAMENT: {
@@ -74,7 +73,9 @@ init_predictor()
         // Initialize each predictor to WN
         lsharetable[i] = WN; 
       }
-      // Fallthrough since we need gselect for tournament
+      // Since we need gselect for tournament
+      init_predictor(GSHARE);
+      break;
     }
     case GSHARE: {
       int tablesize = 1<<ghistoryBits; 
@@ -154,7 +155,7 @@ void transition_perceptron(int32_t *perceptron, uint8_t outcome) {
 // indicates a prediction of not taken
 //
 uint8_t
-make_prediction(uint32_t pc)
+make_prediction(int bpType, uint32_t pc)
 {
   //
   //TODO: Implement prediction scheme
@@ -171,7 +172,7 @@ make_prediction(uint32_t pc)
         int lsharetableindex = psharetable[index];
         return predict_2bit(lsharetable[lsharetableindex]);
       }
-      // Else fallthrough for gshare
+      return make_prediction(GSHARE, pc);
     }
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
@@ -195,7 +196,7 @@ make_prediction(uint32_t pc)
 // indicates that the branch was not taken)
 //
 void
-train_predictor(uint32_t pc, uint8_t outcome)
+train_predictor(int bpType, uint32_t pc, uint8_t outcome)
 {
   // Train based on the bpType
   switch (bpType) {
@@ -214,7 +215,9 @@ train_predictor(uint32_t pc, uint8_t outcome)
       transition_2bit(&lsharetable[lsharetableindex], outcome);
       // Transition locah history table
       psharetable[index] = ((psharetable[index] << 1) | outcome) & ((1<<lhistoryBits)-1);
-      // Fall through transition global predictor
+      // Transition global predictor
+      train_predictor(GSHARE, pc, outcome);
+      break;
     }
     case GSHARE: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
