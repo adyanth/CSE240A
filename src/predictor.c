@@ -50,6 +50,7 @@ uint32_t *psharetable;   // Local history table
 uint8_t *lsharetable;   // Local predictor
 // Custom
 int32_t *perceptrontable; // Perceptron table 
+uint32_t perceptrontablesize;
 //------------------------------------//
 //        Predictor Functions         //
 //------------------------------------//
@@ -104,8 +105,8 @@ init_predictor(int bpType)
       break;
     }
     case PERCEPTRON: {
-      int tablesize = 1<<(ghistoryBits);
-      perceptrontable = (int32_t *)calloc(tablesize*ghistoryBits, sizeof(int32_t));
+      perceptrontablesize = 1<<(ghistoryBits+2);
+      perceptrontable = (int32_t *)calloc(perceptrontablesize*ghistoryBits, sizeof(int32_t));
       // All history is not taken
       gsharebhr = 0;
       break;
@@ -204,7 +205,7 @@ make_prediction(int bpType, uint32_t pc)
     }
     case PERCEPTRON: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
-      return predict_perceptron(&perceptrontable[index*ghistoryBits], 0);
+      return predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 0);
     }
     default:
       break;
@@ -258,10 +259,10 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
     }
     case PERCEPTRON:{
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
-      uint8_t pval = predict_perceptron(&perceptrontable[index*ghistoryBits], 1);
-      uint8_t p = predict_perceptron(&perceptrontable[index*ghistoryBits], 0);
+      uint8_t pval = predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 1);
+      uint8_t p = predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 0);
       if (p != outcome || pval <= (1.93*ghistoryBits+14))
-        transition_perceptron(&perceptrontable[index*ghistoryBits], outcome);
+        transition_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], outcome);
       gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
       break;
     }
