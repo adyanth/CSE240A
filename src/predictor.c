@@ -35,7 +35,7 @@ int verbose;
 int TOUR_1 = LSHARE;
 int TOUR_2 = GSHARE;
 
-int CUSTOM_P = TOURNAMENT;
+int CUSTOM_P = PERCEPTRON;
 
 //------------------------------------//
 //      Predictor Data Structures     //
@@ -204,7 +204,7 @@ make_prediction(int bpType, uint32_t pc)
     }
     case PERCEPTRON: {
       uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
-      return predict_perceptron(&perceptrontable[index*ghistoryBits]);
+      return predict_perceptron(&perceptrontable[index*ghistoryBits], 0);
     }
     default:
       break;
@@ -257,7 +257,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case PERCEPTRON:{
-      uint32_t index = pc & ((1 << ghistoryBits) - 1) ^ gsharebhr;
+      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       uint8_t pval = predict_perceptron(&perceptrontable[index*ghistoryBits], 1);
       uint8_t p = predict_perceptron(&perceptrontable[index*ghistoryBits], 0);
       if (p != outcome || pval <= (1.93*ghistoryBits+14))
