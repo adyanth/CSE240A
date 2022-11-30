@@ -29,7 +29,7 @@ usage()
   fprintf(stderr,"    static\n"
                  "    gshare:<# ghistory>\n"
                  "    tournament:<# ghistory>:<# lhistory>:<# index>\n"
-                 "    custom\n");
+                 "    custom:<# ghistory>:<# index>\n");
 }
 
 // Process an option and update the predictor
