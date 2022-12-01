@@ -233,10 +233,10 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
     case TOURNAMENT: {
       uint32_t index = pc & ((1 << pcIndexBits) - 1);
       // Transition meta predictor
-      uint8_t p2 = make_prediction(TOUR_1, pc);
-      uint8_t p1 = make_prediction(TOUR_2, pc);
+      uint8_t p1 = make_prediction(TOUR_1, pc);
+      uint8_t p2 = make_prediction(TOUR_2, pc);
       if(p1 != p2) {
-        transition_2bit(&msharetable[index], p1 > p2);
+        transition_2bit(&msharetable[index], p2 > p1);
       }
       train_predictor(TOUR_1, pc, outcome);
       train_predictor(TOUR_2, pc, outcome);
