@@ -236,7 +236,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       uint8_t p1 = make_prediction(TOUR_1, pc);
       uint8_t p2 = make_prediction(TOUR_2, pc);
       if(p1 != p2) {
-        transition_2bit(&msharetable[index], p2 > p1);
+        transition_2bit(&msharetable[index], outcome ? p2 > p1 : p2 < p1);
       }
       train_predictor(TOUR_1, pc, outcome);
       train_predictor(TOUR_2, pc, outcome);
