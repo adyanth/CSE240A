@@ -167,6 +167,10 @@ uint8_t predict_perceptron(int32_t *perceptron, int raw) {
 
 void transition_perceptron(int32_t *perceptron, uint8_t outcome) {
   for (int i = 0; i < ghistoryBits; i++) {
+    // Check if weights saturated
+    if(perceptron[i] == (1 << (8 * sizeof(perceptron[i]) - 1)) - 1) continue;
+    if(-perceptron[i] == (1 << (8 * sizeof(perceptron[i]) - 1))) continue;
+    
     perceptron[i] += ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN) ? 1 : -1);
   }
   return;
