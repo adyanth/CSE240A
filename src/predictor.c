@@ -35,7 +35,7 @@ int verbose;
 int TOUR_1 = LSHARE;
 int TOUR_2 = GSHARE;
 
-int CUSTOM_P = PERCEPTRON;
+int CUSTOM_P = TOURNAMENT;
 
 //------------------------------------//
 //      Predictor Data Structures     //
@@ -49,7 +49,10 @@ uint8_t *msharetable;   // Meta predictor
 uint32_t *psharetable;   // Local history table
 uint8_t *lsharetable;   // Local predictor
 // Custom
-int32_t *perceptrontable; // Perceptron table 
+#define P_TYPE int32_t
+#define P_TYPE_MAX INT32_MAX
+#define P_TYPE_MIN INT32_MIN
+P_TYPE *perceptrontable; // Perceptron table 
 uint32_t perceptrontablesize;
 //------------------------------------//
 //        Predictor Functions         //
@@ -106,7 +109,7 @@ init_predictor(int bpType)
     }
     case PERCEPTRON: {
       perceptrontablesize = 1<<(pcIndexBits);
-      perceptrontable = (int32_t *)calloc(perceptrontablesize*ghistoryBits, sizeof(int32_t));
+      perceptrontable = (P_TYPE *)calloc(perceptrontablesize*ghistoryBits, sizeof(P_TYPE));
       // All history is not taken
       gsharebhr = 0;
       break;
@@ -155,7 +158,7 @@ void transition_lbit(uint8_t *state, uint8_t outcome) {
   return transition_nbit(state, outcome, lhistoryBits);
 }
 
-uint8_t predict_perceptron(int32_t *perceptron, int raw) {
+uint8_t predict_perceptron(P_TYPE *perceptron, int raw) {
   int prediction = 1; // Bias
 
   for (int i = 0; i < ghistoryBits; i++) {
@@ -165,13 +168,14 @@ uint8_t predict_perceptron(int32_t *perceptron, int raw) {
   return raw?prediction:prediction>=0;
 }
 
-void transition_perceptron(int32_t *perceptron, uint8_t outcome) {
-  for (int i = 0; i < ghistoryBits; i++) {
+void transition_perceptron(P_TYPE *perceptron, uint8_t outcome) {
+  for (int i = 0, update=0; i < ghistoryBits; i++) {
     // Check if weights saturated
-    if(perceptron[i] == (1 << (8 * sizeof(perceptron[i]) - 1)) - 1) continue;
-    if(-perceptron[i] == (1 << (8 * sizeof(perceptron[i]) - 1))) continue;
-    
-    perceptron[i] += ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN) ? 1 : -1);
+    update = ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN) ? 1 : -1);
+    if(update == 1 && perceptron[i] == P_TYPE_MAX) continue;
+    if(update == -1 && perceptron[i] == P_TYPE_MIN) continue;
+
+    perceptron[i] += update;
   }
   return;
 }
