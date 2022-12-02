@@ -63,7 +63,7 @@ init_predictor(int bpType)
   switch (bpType) {
     case TOURNAMENT: {
       // Start with simple BHT
-      int tablesize = 1 << pcIndexBits;
+      int tablesize = 1 << ghistoryBits;
       msharetable = calloc(tablesize, sizeof(uint8_t));
 
       // Initialize 
@@ -190,7 +190,7 @@ make_prediction(int bpType, uint32_t pc)
       return make_prediction(CUSTOM_P, pc);
     }
     case TOURNAMENT: {
-      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       return predict_2bit(msharetable[index]) ? make_prediction(TOUR_2, pc) : make_prediction(TOUR_1, pc);
     }
     case LSHARE: {
@@ -231,7 +231,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case TOURNAMENT: {
-      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
       // Transition meta predictor
       uint8_t p1 = make_prediction(TOUR_1, pc);
       uint8_t p2 = make_prediction(TOUR_2, pc);
