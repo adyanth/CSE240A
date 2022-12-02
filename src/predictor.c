@@ -105,7 +105,7 @@ init_predictor(int bpType)
       break;
     }
     case PERCEPTRON: {
-      perceptrontablesize = 1<<(ghistoryBits+2);
+      perceptrontablesize = 1<<(pcIndexBits);
       perceptrontable = (int32_t *)calloc(perceptrontablesize*ghistoryBits, sizeof(int32_t));
       // All history is not taken
       gsharebhr = 0;
@@ -204,7 +204,7 @@ make_prediction(int bpType, uint32_t pc)
       return predict_2bit(predict);
     }
     case PERCEPTRON: {
-      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
+      uint32_t index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
       return predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 0);
     }
     default:
@@ -258,7 +258,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case PERCEPTRON:{
-      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
+      uint32_t index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
       uint8_t pval = predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 1);
       uint8_t p = predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 0);
       if (p != outcome || pval <= (1.93*ghistoryBits+14))
