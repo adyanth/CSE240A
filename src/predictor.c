@@ -30,6 +30,7 @@ const char *bpName[4] = { "Static", "Gshare",
 int ghistoryBits; // Number of bits used for Global History
 int lhistoryBits; // Number of bits used for Local History
 int pcIndexBits;  // Number of bits used for PC index
+int pghistoryBits; // Number of bits used for Global History in Perceptron
 int verbose;
 
 int TOUR_1 = LSHARE;
@@ -54,6 +55,7 @@ uint8_t *lsharetable;   // Local predictor
 #define P_TYPE_MIN INT32_MIN
 P_TYPE *perceptrontable; // Perceptron table 
 uint32_t perceptrontablesize;
+uint8_t sharedBhr = 0;
 //------------------------------------//
 //        Predictor Functions         //
 //------------------------------------//
@@ -109,14 +111,15 @@ init_predictor(int bpType)
     }
     case PERCEPTRON: {
       perceptrontablesize = 1<<(pcIndexBits);
-      perceptrontable = (P_TYPE *)calloc(perceptrontablesize*ghistoryBits, sizeof(P_TYPE));
+      perceptrontable = (P_TYPE *)calloc(perceptrontablesize*pghistoryBits, sizeof(P_TYPE));
       // All history is not taken
-      gsharebhr = 0;
+      if(!sharedBhr) gsharebhr = 0;
       break;
     }
     case CUSTOM: {
-      TOUR_1 = PERCEPTRON;
-      TOUR_2 = GSHARE;
+      TOUR_1 = GSHARE;
+      TOUR_2 = PERCEPTRON;
+      sharedBhr = 1;
       init_predictor(CUSTOM_P);
       break;
     }
@@ -161,17 +164,17 @@ void transition_lbit(uint8_t *state, uint8_t outcome) {
 uint8_t predict_perceptron(P_TYPE *perceptron, int raw) {
   int prediction = 1; // Bias
 
-  for (int i = 0; i < ghistoryBits; i++) {
-    prediction += perceptron[i]*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN)? 1: -1);
+  for (int i = 0; i < pghistoryBits; i++) {
+    prediction += perceptron[i]*(((gsharebhr >> (pghistoryBits-i-1)) & TAKEN)? 1: -1);
   }
 
   return raw?prediction:prediction>=0;
 }
 
 void transition_perceptron(P_TYPE *perceptron, uint8_t outcome) {
-  for (int i = 0, update=0; i < ghistoryBits; i++) {
+  for (int i = 0, update=0; i < pghistoryBits; i++) {
     // Check if weights saturated
-    update = ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (ghistoryBits-i-1)) & TAKEN) ? 1 : -1);
+    update = ((outcome == NOTTAKEN)? -1 : 1)*(((gsharebhr >> (pghistoryBits-i-1)) & TAKEN) ? 1 : -1);
     if(update == 1 && perceptron[i] == P_TYPE_MAX) continue;
     if(update == -1 && perceptron[i] == P_TYPE_MIN) continue;
 
@@ -213,7 +216,7 @@ make_prediction(int bpType, uint32_t pc)
     }
     case PERCEPTRON: {
       uint32_t index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
-      return predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 0);
+      return predict_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], 0);
     }
     default:
       break;
@@ -267,11 +270,11 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
     }
     case PERCEPTRON:{
       uint32_t index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
-      uint8_t pval = predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 1);
-      uint8_t p = predict_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], 0);
-      if (p != outcome || pval <= (1.93*ghistoryBits+14))
-        transition_perceptron(&perceptrontable[(index*ghistoryBits)%perceptrontablesize], outcome);
-      gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
+      uint8_t pval = predict_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], 1);
+      uint8_t p = predict_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], 0);
+      if (p != outcome || pval <= (1.93*pghistoryBits+14))
+        transition_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], outcome);
+      if(!sharedBhr) gsharebhr = ((gsharebhr << 1) | outcome);
       break;
     }
     default:

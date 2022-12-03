@@ -29,8 +29,8 @@ usage()
   fprintf(stderr,"    static\n"
                  "    gshare:<# ghistory>\n"
                  "    tournament:<# ghistory>:<# lhistory>:<# index>\n"
-                 "    perceptron:<# ghistory>:<# perceptron>\n"
-                 "    custom:<# ghistory>:<# perceptron>\n"
+                 "    perceptron:<# pghistory>:<# perceptron>\n"
+                 "    custom:<# ghistory>:<# pghistory>:<# perceptron>\n"
   );
 }
 
@@ -51,10 +51,10 @@ handle_option(char *arg)
     bpType = TOURNAMENT;
     sscanf(arg+13,"%d:%d:%d", &ghistoryBits, &lhistoryBits, &pcIndexBits);
   } else if (!strncmp(arg,"--perceptron:", 9)) {
-    sscanf(arg+13,"%d:%d", &ghistoryBits, &pcIndexBits);
+    sscanf(arg+13,"%d:%d", &pghistoryBits, &pcIndexBits);
     bpType = PERCEPTRON;
   } else if (!strncmp(arg,"--custom:", 9)) {
-    sscanf(arg+9,"%d:%d", &ghistoryBits, &pcIndexBits);
+    sscanf(arg+9,"%d:%d:%d", &ghistoryBits, &pghistoryBits, &pcIndexBits);
     bpType = CUSTOM;
   } else if (!strcmp(arg,"--verbose")) {
     verbose = 1;
