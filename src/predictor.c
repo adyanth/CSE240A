@@ -34,7 +34,7 @@ int pghistoryBits; // Number of bits used for Global History in Perceptron
 int verbose;
 
 int TOUR_1 = LSHARE;
-int TOUR_2 = GSHARE;
+int TOUR_2 = GSELECT;
 
 int CUSTOM_P = TOURNAMENT;
 
@@ -97,6 +97,7 @@ init_predictor(int bpType)
       }
       break;
     }
+    case GSELECT:
     case GSHARE: {
       int tablesize = 1<<ghistoryBits; 
       gsharetable = calloc(tablesize, sizeof(uint8_t));
@@ -194,6 +195,7 @@ make_prediction(int bpType, uint32_t pc)
   //
 
   // Make a prediction based on the bpType
+  uint32_t index = -1;
   switch (bpType) {
     case STATIC:
       return TAKEN;
@@ -201,21 +203,23 @@ make_prediction(int bpType, uint32_t pc)
       return make_prediction(CUSTOM_P, pc);
     }
     case TOURNAMENT: {
-      uint32_t index = gsharebhr & ((1 << ghistoryBits) - 1);
+      index = gsharebhr & ((1 << ghistoryBits) - 1);
       return predict_2bit(msharetable[index]) ? make_prediction(TOUR_2, pc) : make_prediction(TOUR_1, pc);
     }
     case LSHARE: {
-      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      index = pc & ((1 << pcIndexBits) - 1);
       int lsharetableindex = psharetable[index];
       return predict_2bit(lsharetable[lsharetableindex]);
     }
+    case GSELECT:
+      index = gsharebhr & ((1 << ghistoryBits) - 1);
     case GSHARE: {
-      uint32_t index = (pc ^ gsharebhr) & ((1 << ghistoryBits) - 1);
+      if (index == -1) index = (pc ^ gsharebhr) & ((1 << ghistoryBits) - 1);
       uint8_t predict = gsharetable[index];
       return predict_2bit(predict);
     }
     case PERCEPTRON: {
-      uint32_t index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
+      index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
       return predict_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], 0);
     }
     default:
@@ -233,6 +237,7 @@ make_prediction(int bpType, uint32_t pc)
 void
 train_predictor(int bpType, uint32_t pc, uint8_t outcome)
 {
+  uint32_t index = -1;
   // Train based on the bpType
   switch (bpType) {
     case STATIC:
@@ -242,7 +247,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case TOURNAMENT: {
-      uint32_t index = gsharebhr & ((1 << ghistoryBits) - 1);
+      index = gsharebhr & ((1 << ghistoryBits) - 1);
       // Transition meta predictor
       uint8_t p1 = make_prediction(TOUR_1, pc);
       uint8_t p2 = make_prediction(TOUR_2, pc);
@@ -254,7 +259,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case LSHARE: {
-      uint32_t index = pc & ((1 << pcIndexBits) - 1);
+      index = pc & ((1 << pcIndexBits) - 1);
       uint32_t lsharetableindex = psharetable[index];
       // Transition local predictor
       transition_2bit(&lsharetable[lsharetableindex], outcome);
@@ -262,14 +267,16 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       psharetable[index] = ((psharetable[index] << 1) | outcome) & ((1<<lhistoryBits)-1);
       break;
     }
+    case GSELECT:
+      index = gsharebhr & ((1 << ghistoryBits) - 1);
     case GSHARE: {
-      uint32_t index = (pc ^ gsharebhr) & ((1 << ghistoryBits) - 1);
+      if (index == -1) index = (pc ^ gsharebhr) & ((1 << ghistoryBits) - 1);
       transition_2bit(&gsharetable[index], outcome);
       gsharebhr = ((gsharebhr << 1) | outcome);
       break;
     }
     case PERCEPTRON:{
-      uint32_t index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
+      index = (pc ^ gsharebhr) & ((1 << pcIndexBits) - 1);
       uint8_t pval = predict_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], 1);
       uint8_t p = predict_perceptron(&perceptrontable[(index*pghistoryBits)%perceptrontablesize], 0);
       if (p != outcome || pval <= (1.93*pghistoryBits+14))

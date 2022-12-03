@@ -26,12 +26,14 @@ extern const char *email;
 #define TAKEN     1
 
 // The Different Predictor Types
+#define DUMMY      -1
 #define STATIC      0
 #define GSHARE      1
 #define TOURNAMENT  2
 #define CUSTOM      3
 #define LSHARE      4
 #define PERCEPTRON  5
+#define GSELECT     6
 extern const char *bpName[];
 
 // Definitions for 2-bit counters
