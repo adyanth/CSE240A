@@ -198,7 +198,7 @@ make_prediction(int bpType, uint32_t pc)
       return make_prediction(CUSTOM_P, pc);
     }
     case TOURNAMENT: {
-      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
+      uint32_t index = gsharebhr & ((1 << ghistoryBits) - 1);
       return predict_2bit(msharetable[index]) ? make_prediction(TOUR_2, pc) : make_prediction(TOUR_1, pc);
     }
     case LSHARE: {
@@ -207,7 +207,7 @@ make_prediction(int bpType, uint32_t pc)
       return predict_2bit(lsharetable[lsharetableindex]);
     }
     case GSHARE: {
-      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
+      uint32_t index = (pc ^ gsharebhr) & ((1 << ghistoryBits) - 1);
       uint8_t predict = gsharetable[index];
       return predict_2bit(predict);
     }
@@ -239,7 +239,7 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case TOURNAMENT: {
-      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
+      uint32_t index = gsharebhr & ((1 << ghistoryBits) - 1);
       // Transition meta predictor
       uint8_t p1 = make_prediction(TOUR_1, pc);
       uint8_t p2 = make_prediction(TOUR_2, pc);
@@ -260,9 +260,9 @@ train_predictor(int bpType, uint32_t pc, uint8_t outcome)
       break;
     }
     case GSHARE: {
-      uint32_t index = (pc & ((1 << ghistoryBits) - 1)) ^ gsharebhr;
+      uint32_t index = (pc ^ gsharebhr) & ((1 << ghistoryBits) - 1);
       transition_2bit(&gsharetable[index], outcome);
-      gsharebhr = ((gsharebhr << 1) | outcome) & ((1 << ghistoryBits) - 1);
+      gsharebhr = ((gsharebhr << 1) | outcome);
       break;
     }
     case PERCEPTRON:{
