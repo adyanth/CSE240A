@@ -1,8 +1,8 @@
 #!/bin/bash
 
-custom="--custom:12:64:5"           # for tournament of perceptron and gshare
+custom="--custom:12:31:8"           # for tournament of perceptron and gshare
 # custom="--tournament:13:12:11"        # beats all but fp_1
-perceptron="--perceptron:164:5"
+perceptron="--perceptron:32:8"
 tournament="--tournament:9:10:10"
 gshare="--gshare:13"
 
